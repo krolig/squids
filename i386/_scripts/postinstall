@@ -1,0 +1,26 @@
+#!/bin/sh
+
+DEST="/opt/kroleg/squid"
+
+PROFILE="$HOME/.profile"
+BASH_PROFILE="$HOME/.bash_profile"
+SUDOERS="/etc/sudoers"
+EXPORT_PATH='export PATH=$PATH:/opt/kroleg/squid/sbin'
+EXPORT_PATH_SE="$USER\tALL=(root) NOPASSWD: /usr/sbin/networksetup"
+
+if ! grep -q "$EXPORT_PATH" "$PROFILE"; then
+ echo "\n$EXPORT_PATH" >> "$PROFILE"
+fi
+
+if ! grep -q "$EXPORT_PATH" "$BASH_PROFILE"; then
+ echo "\n$EXPORT_PATH" >> "$BASH_PROFILE"
+fi
+
+if ! grep -q "$EXPORT_PATH_SE" "$SUDOERS"; then
+ echo "\n$EXPORT_PATH_SE" >> "$SUDOERS"
+fi
+
+chown -R nobody $DEST/var/lib $DEST/var/logs $DEST/var/run
+security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /opt/kroleg/squid/etc/squidCA.der
+
+exit 0

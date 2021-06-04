@@ -1,0 +1,99 @@
+export LDFLAGS="-lresolv" CFLAGS="-mmacosx-version-min=10.5"
+
+./configure --prefix=/opt/kroleg/squid --disable-auth --with-krb5-config=no --disable-external-acl-helpers --disable-eui --enable-ssl --enable-ssl-crtd --with-openssl=/opt/local/etc/openssl && make all
+
+--with-openssl=/System/Library/OpenSSL
+
+
+make install DESTDIR=/Users/kroleg/DevPkg/squid
+
+cd /Users/kroleg/DevPkg/squid/opt/kroleg/squid/etc
+
+openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 -keyout squidCA.pem  -out squidCA.pem
+openssl x509 -in squidCA.pem -outform DER -out squidCA.der
+
+cd ..
+mkdir -p ./lib ./var/lib
+./libexec/ssl_crtd -c -s ./var/lib/ssl_db
+sudo chown -R root:wheel /Users/kroleg/DevPkg/squid
+sudo chown -R nobody ./var/lib ./var/logs ./var/run
+
+--------------------------
+
+DEST_DIR="$HOME/DevPkg/squid"
+SRC=$DEST_DIR/opt/kroleg/squid/sbin/squid
+LIB=$DEST_DIR/opt/kroleg/squid/lib/
+EXEC=@executable_path/../lib/
+
+
+# change dylib path in bynary and copy dylibd
+
+get_dylibs() {
+ echo `otool -L $1 | grep -E "/opt.*dylib[^:]" | awk -F' ' '{ print $1 }'`
+}
+
+
+DYLIBS=$(get_dylibs $SRC)
+
+for dylib in $DYLIBS; do
+  cp $dylib $LIB;
+  install_name_tool -change $dylib $EXEC`basename $dylib` $SRC;
+  chmod 755 $LIB`basename $dylib`
+  DYLIBS2=$(get_dylibs $dylib)
+
+  for dylib2 in $DYLIBS2; do
+   cp $dylib2 $LIB;
+   install_name_tool -change $dylib2 $EXEC`basename $dylib2` $LIB`basename $dylib`;
+   chmod 755 $LIB`basename $dylib2`
+  done;
+done;
+
+
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /opt/kroleg/squid/etc/squidCA.der
+
+security find-certificate -c "Squid" -a -Z | sudo awk '/SHA-1/{system("security delete-certificate -Z "$NF)}'
+
+--------squid.conf----------
+
+cache_effective_user nobody
+http_port 3128 ssl-bump generate-host-certificates=on dynamic_cert_mem_cache_size=4MB cert=/opt/kroleg/squid/etc/squidCA.pem
+always_direct allow all
+ssl_bump server-first all
+sslproxy_cert_error allow all
+sslproxy_flags DONT_VERIFY_PEER
+visible_hostname SQUID-Hostname
+
+----------------------------
+
+dscl . list /Users
+dscl . -create /Users/nobody
+dscl . delete /Users/nobody
+dscl . -list /Users UniqueID
+
+sudo -u nobody ./squid -z
+sudo -u nobody ./squid
+
+sudo kill $(ps aux | grep squid | grep -v grep | awk '{print $2}')
+pgrep 'squid' | xargs sudo kill -9
+
+networksetup -setsecurewebproxy 'Ethernet' 127.0.0.1 3128 && networksetup -getsecurewebproxy 'Ethernet'
+networksetup -setsecurewebproxystate 'Ethernet' off && networksetup -getsecurewebproxy 'Ethernet'
+
+networksetup -setv6off 'Ethernet' (предварительно его надо переименовать)
+networksetup -listallnetworkservices | grep -v asterisk (все сервисы)
+
+
+
+https://habr.com/ru/post/168515/
+https://net-labs.in/2015/01/06/использование-squid-ssl_bump-для-просмотра-https/
+http://www.squid-cache.org/Versions/
+https://www.ssllabs.com/ssltest/viewMyClient.html#1550034675975&frame_loaded
+https://squidman.net/squidman/faq/index.html
+
+https://community.logmein.com/
+https://simutext.zendesk.com/
+https://www.macworld.com/
+https://community.netgear.com
+
+
+

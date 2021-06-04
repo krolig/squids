@@ -1,0 +1,88 @@
+#!/bin/sh
+
+#   ⃝ Kroleg, 2019
+
+# Colors
+BGRED='\033[41m'
+BGBLUE='\033[44m'
+RED='\033[1;31m'
+WHITE='\033[1;37m'
+NORMAL='\033[0m'
+
+Prefix="/opt/kroleg/squid"
+user="nobody"
+
+Usage() {
+ echo "$BGRED$WHITE usage: $NORMAL squids start|stop|restart <networkservice>";
+ echo "$BGBLUE$WHITE        Network services:         $NORMAL"
+ sudo networksetup -listallnetworkservices | grep -v asterisk
+ exit 1;
+}
+
+
+check_load() {
+ return $(ps -A | grep -v 'grep' | grep '/squid$' | awk '{print $1}');
+}
+
+
+Start() {
+ check_load
+ local res=$?
+
+ if [ $res -eq 0 ]; then
+   echo "$BGBLUE$WHITE      Starting Squid service      $NORMAL";
+   sudo -u $user $Prefix/sbin/squid;
+   sudo networksetup -setv6off "$1"
+   sudo networksetup -setsecurewebproxy "$1" 127.0.0.1 3128;
+   printf "  ....:: Proxy settings ::....\n";
+   sudo networksetup -getsecurewebproxy "$1";
+  fi
+}
+
+
+Stop() {
+ check_load
+ local res=$?
+
+ if [ $res -ne 0 ]; then
+   echo "$BGBLUE$WHITE      Stopping Squid service      $NORMAL";
+   sudo networksetup -setv6automatic "$1"
+   sudo networksetup -setsecurewebproxystate "$1" off;
+   printf "  ....:: Proxy settings ::....\n";
+   sudo networksetup -getsecurewebproxy "$1";
+
+   sudo -u $user $Prefix/sbin/squid -k shutdown;
+   while sudo -u $user $Prefix/sbin/squid -k check 2>/dev/null; do
+    printf ".";
+    sleep 1;
+   done
+   printf " Squid is completely stopped\n";
+  fi
+}
+
+
+Restart() {
+ echo "$BGBLUE$WHITE      Restarting Squid service    $NORMAL";
+ sudo -u $user $Prefix/sbin/squid -k reconfigure;
+}
+
+
+if [ -z "$2" ]; then Usage; fi
+
+case "$1" in
+  help|--help|-h)
+    Usage;;
+
+  start)
+    Start "$2";;
+
+  stop)
+    Stop "$2";;
+
+  restart)
+    Restart;;
+
+  *)
+    echo "Error: missing or unrecognized command-line argument";
+    Usage;;
+esac

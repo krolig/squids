@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="1">
+    <title>Squid</title>
+    <choices-outline>
+            <line choice="org.kroleg.squid" />
+    </choices-outline>
+
+    <choice id="org.kroleg.squid" enabled="false" start_selected="true" title="Squid" description="Squid is a caching proxy for the Web supporting HTTP, HTTPS, FTP, and more">
+        <pkg-ref id="org.kroleg.squid" />
+    </choice>
+
+    <pkg-ref id="org.kroleg.squid" auth="root">squid.pkg</pkg-ref>
+</installer-gui-script>

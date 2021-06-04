@@ -1,0 +1,25 @@
+#!/bin/sh
+
+osascript -e 'do shell script "
+
+hash=$(security find-certificate -c \"Squid\" -a -Z | grep SHA-1 | sed \"s/SHA-1 hash://\")
+security delete-certificate -Z $hash
+
+IDF=\"org.kroleg.squid\"
+
+if ! [ -f \"/var/db/receipts/$IDF.bom\" ]; then
+ BOM_DIR=\"/Library/Receipts/boms\"
+else
+ BOM_DIR=\"/var/db/receipts\"
+fi
+
+lsbom -fls $BOM_DIR/$IDF.bom | (cd /; sudo xargs rm)
+lsbom -dls $BOM_DIR/$IDF.bom | (cd /; sudo xargs rmdir -p)
+
+cd $BOM_DIR
+rm -f $IDF.bom org.kroleg.squid.plist
+
+ osascript <<END
+  tell applications \"System Events\" to display dialog \"Kroleg’s Squid removed successfully\" buttons {\"OK\"} with icon caution
+ END
+" with administrator privileges' >/dev/null
